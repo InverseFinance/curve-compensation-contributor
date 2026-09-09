@@ -22,41 +22,42 @@ interface IVotium {
     ) external;
 }
 
-/// @notice Permissionlessly funds compensation through Votium or directly
+/// @notice Permissionlessly funds compensation with sTokens through Votium or directly
 ///         through the compensation split contract.
 contract CurveCompensationContributor is Ownable {
     using SafeERC20 for IERC20;
 
-    // Curve treasury holding the ERC4626 vault shares.
+    // Curve treasury holding the sToken shares.
     address public constant TREASURY =
-        0x6508ef65b0bd57eabd0f1d52685a70433b2d290b;
+        0x6508eF65b0Bd57eaBD0f1D52685A70433B2d290B;
 
-    // Supported ERC4626 vaults and their underlying assets.
+    // Supported sTokens with ERC4626 conversion views, and their underlyings.
     address public constant SDOLA =
-        0xb45ad160634c528cc3d2926d9807104fa3157305;
+        0xb45ad160634c528Cc3D2926d9807104FA3157305;
 
     address public constant DOLA =
-        0x865377367054516e17014ccded1e7d814edc9ce4;
+        0x865377367054516e17014CcdED1e7d814EDC9ce4;
 
     address public constant SFRXUSD =
-        0xcf62f905562626cfcdd2261162a51fd02fc9c5b6;
+        0xcf62F905562626CfcDD2261162a51fd02Fc9c5b6;
 
     address public constant FRXUSD =
-        0xcacd6fd266af91b8aed52accc382b4e165586e29;
+        0xCAcd6fd266aF91b8AeD52aCCc382b4e165586E29;
 
     // Votium and compensation destinations.
     address public constant VOTIUM =
-        0x63942e31e98f1833a234077f47880a66136a2d1e;
+        0x63942E31E98f1833A234077f47880A66136a2D1e;
 
     address public constant DONATION_GAUGE =
-        0x93b823e54959635ccabfcf1b313b2ad2785bfe95;
+        0x93B823e54959635ccAbfcf1B313B2Ad2785BFe95;
 
     address public constant SPLIT =
-        0xe04c7d284cb023bdd4bca0fc848abeb6f8b56d34;
+        0xe04c7d284cB023bdD4bCa0FC848aBEb6F8B56d34;
 
     address public constant INITIAL_MANAGER =
-        0xf90c888e3bb5e9fc90418e72cd2e2bccfe358628;
+        0xF90C888E3bB5e9fc90418e72cD2e2bcCFE358628;
 
+    // All budgets are denominated in 18-decimal underlying units, not shares or USD.
     uint256 public constant MAX_TOTAL_CONTRIBUTION = 740_000e18;
 
     address public manager = INITIAL_MANAGER;
@@ -76,8 +77,9 @@ contract CurveCompensationContributor is Ownable {
     event Contributed(
         uint256 indexed round,
         address indexed vault,
-        address indexed token,
-        uint256 amount,
+        address indexed underlying,
+        uint256 assets,
+        uint256 shares,
         bool directToSplit
     );
 
@@ -112,7 +114,7 @@ contract CurveCompensationContributor is Ownable {
     }
 
     /// @param owner_ Curve DAO executor or other DAO-controlled owner.
-    /// @param contributionAmount_ Initial contribution per Votium round.
+    /// @param contributionAmount_ Initial underlying-unit budget per Votium round.
     constructor(
         address owner_,
         uint256 contributionAmount_
@@ -150,48 +152,48 @@ contract CurveCompensationContributor is Ownable {
             amount = remaining;
         }
 
-        address token;
+        require(vault == SDOLA || vault == SFRXUSD, "invalid vault");
 
-        if (vault == SDOLA) {
-            token = DOLA;
-        } else if (vault == SFRXUSD) {
-            token = FRXUSD;
-        } else {
-            revert("invalid vault");
-        }
+        // Convert the underlying budget to shares, rounding down. Never use
+        // previewWithdraw: it rounds up and sfrxUSD withdrawals are disabled.
+        uint256 shares = IERC4626(vault).convertToShares(amount);
+        require(shares > 0, "zero shares");
 
-        // Update accounting before external calls.
-        // Any later revert rolls these changes back.
+        // Book the actual shares at their reported underlying value at execution.
+        // These conversion rates are not market-price or redemption guarantees.
+        uint256 assets = IERC4626(vault).convertToAssets(shares);
+        require(assets > 0, "zero assets");
+        require(assets <= amount, "conversion above budget");
+
+        // Update accounting before transfers. A later revert rolls this back.
         contributedInRound[round] = true;
-        totalContributed += amount;
+        totalContributed += assets;
 
-        // Burns treasury vault shares and sends the underlying here.
-        IERC4626(vault).withdraw(
-            amount,
-            address(this),
-            TREASURY
-        );
+        IERC20 token = IERC20(vault);
+        token.safeTransferFrom(TREASURY, address(this), shares);
 
         bool isDirect = directToSplit;
 
         if (isDirect) {
-            IERC20(token).safeTransfer(SPLIT, amount);
+            token.safeTransfer(SPLIT, shares);
         } else {
             // Votium pulls the fee and incentive in two transferFrom calls.
-            IERC20(token).forceApprove(VOTIUM, amount);
+            token.forceApprove(VOTIUM, shares);
 
             IVotium(VOTIUM).depositIncentiveSimple(
-                token,
-                amount,
+                vault,
+                shares,
                 DONATION_GAUGE
             );
+            token.forceApprove(VOTIUM, 0);
         }
 
         emit Contributed(
             round,
             vault,
-            token,
-            amount,
+            vault == SDOLA ? DOLA : FRXUSD,
+            assets,
+            shares,
             isDirect
         );
     }
@@ -215,7 +217,8 @@ contract CurveCompensationContributor is Ownable {
     }
 
     /// @notice Recovers an incentive that Votium did not process.
-    /// @dev The recovered underlying is sent directly to the split.
+    /// @dev Recovered sToken shares are sent directly to the split.
+    ///      Recovery does not reopen any of the gross contribution allowance.
     ///      The incentive index is available in Votium's NewIncentive event.
     function recoverUnprocessedIncentive(
         uint256 round,
@@ -223,13 +226,13 @@ contract CurveCompensationContributor is Ownable {
         address token
     ) external onlyManager {
         require(
-            token == DOLA || token == FRXUSD,
+            token == SDOLA || token == SFRXUSD,
             "invalid token"
         );
 
-        IERC20 underlying = IERC20(token);
+        IERC20 stakedToken = IERC20(token);
         uint256 balanceBefore =
-            underlying.balanceOf(address(this));
+            stakedToken.balanceOf(address(this));
 
         IVotium(VOTIUM).withdrawUnprocessed(
             round,
@@ -238,12 +241,12 @@ contract CurveCompensationContributor is Ownable {
         );
 
         uint256 recovered =
-            underlying.balanceOf(address(this)) -
+            stakedToken.balanceOf(address(this)) -
             balanceBefore;
 
         require(recovered > 0, "wrong token");
 
-        underlying.safeTransfer(SPLIT, recovered);
+        stakedToken.safeTransfer(SPLIT, recovered);
 
         emit UnprocessedIncentiveRecovered(
             round,
