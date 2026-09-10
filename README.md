@@ -53,10 +53,10 @@ Only one contribution can be made during each Votium active round, regardless of
 The contract may contribute no more than the following amount **from each treasury**:
 
 ```text
-740,000 underlying tokens
+700,000 underlying tokens
 ```
 
-`totalContributed` records the matched amount once, not twice. Gross combined funding is therefore `2 * totalContributed`, capped at 1,480,000 nominal underlying units. The same cap reduction and rounding apply to both treasury debits.
+`totalContributed` records the matched amount once, not twice. Gross combined funding is therefore `2 * totalContributed`, capped at 1,400,000 nominal underlying units. The same cap reduction and rounding apply to both treasury debits.
 
 The final contribution budget is reduced automatically if the remaining allocation is smaller than the configured contribution amount.
 

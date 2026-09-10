@@ -5,7 +5,7 @@ const { ethers } = require('ethers');
 const { compile } = require('../scripts/compile.cjs');
 const compiled = compile(true);
 const unit = 10n ** 18n;
-const cap = 740000n * unit;
+const cap = 700000n * unit;
 const addresses = {
   treasury: '0x6508eF65b0Bd57eaBD0f1D52685A70433B2d290B',
   inverse: '0x9D5Df30F475CEA915b1ed4C0CCa59255C897b61B',

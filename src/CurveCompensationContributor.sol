@@ -73,8 +73,8 @@ contract CurveCompensationContributor is Ownable {
         0xF90C888E3bB5e9fc90418e72cD2e2bcCFE358628;
 
     // Underlying-unit cap PER TREASURY. Each contribution books one matched amount,
-    // so combined gross funding is twice totalContributed (maximum 1,480,000e18).
-    uint256 public constant MAX_TOTAL_CONTRIBUTION = 740_000e18;
+    // so combined gross funding is twice totalContributed (maximum 1,400,000e18).
+    uint256 public constant MAX_TOTAL_CONTRIBUTION = 700_000e18;
 
     address public manager = INITIAL_MANAGER;
 
