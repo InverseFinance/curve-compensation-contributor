@@ -13,6 +13,7 @@ contract MockStakedToken is ERC20 {
     function setRate(uint256 value) external { rate = value; }
     function setOverBudget(bool value) external { overBudget = value; }
     function mint(address to, uint256 amount) external { _mint(to, amount); }
+    function burn(address from, uint256 amount) external { _burn(from, amount); }
     function convertToShares(uint256 assets) external view returns (uint256) {
         return assets * 1e18 / rate;
     }
@@ -26,12 +27,15 @@ contract MockStakedToken is ERC20 {
 contract MockVotium {
     uint256 public activeRound;
     mapping(address => bool) public tokenAllowed;
+    mapping(address => bool) public gaugeBlocked;
     struct Incentive { address token; uint256 amount; address depositor; }
     mapping(uint256 => mapping(address => Incentive[])) public incentives;
     function setRound(uint256 round) external { activeRound = round; }
     function allowToken(address token, bool allowed) external { tokenAllowed[token] = allowed; }
+    function blockGauge(address gauge, bool blocked) external { gaugeBlocked[gauge] = blocked; }
     function depositIncentiveSimple(address token, uint256 amount, address gauge) external {
         require(tokenAllowed[token], "!allowlist");
+        require(!gaugeBlocked[gauge], "gauge blocked");
         uint256 fee = amount * 200 / 10000;
         require(fee > 0, "!amount");
         require(IERC20(token).transferFrom(msg.sender, address(0xFEE), fee));
@@ -46,5 +50,30 @@ contract MockVotium {
         require(amount > 0, "!zero");
         incentive.amount = 0;
         require(IERC20(incentive.token).transfer(msg.sender, amount));
+    }
+}
+
+contract MockRewardGauge {
+    mapping(address => address) public distributor;
+    mapping(address => uint256) public rewardRemaining;
+    mapping(address => uint256) public rewardRate;
+    mapping(address => uint256) public periodFinish;
+    uint256 public lastEpoch;
+    bool public rejectDeposit;
+    function setDistributor(address token, address sender) external { distributor[token] = sender; }
+    function setRejectDeposit(bool value) external { rejectDeposit = value; }
+    function deposit_reward_token(address token, uint256 amount, uint256 epoch) external {
+        require(msg.sender == distributor[token], "not distributor");
+        require(epoch >= 3 days && epoch <= 48 weeks, "Epoch duration");
+        require(!rejectDeposit, "deposit rejected");
+        uint256 remaining;
+        if (periodFinish[token] > block.timestamp) {
+            remaining = (periodFinish[token] - block.timestamp) * rewardRate[token];
+        }
+        require(IERC20(token).transferFrom(msg.sender, address(this), amount));
+        rewardRemaining[token] = remaining + amount;
+        rewardRate[token] = rewardRemaining[token] / epoch;
+        periodFinish[token] = block.timestamp + epoch;
+        lastEpoch = epoch;
     }
 }

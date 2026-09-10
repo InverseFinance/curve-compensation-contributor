@@ -22,14 +22,29 @@ interface IVotium {
     ) external;
 }
 
-/// @notice Permissionlessly funds compensation with sTokens through Votium or directly
-///         through the compensation split contract.
+interface IRewardGauge {
+    function deposit_reward_token(
+        address token,
+        uint256 amount,
+        uint256 epoch
+    ) external;
+}
+
+/// @notice Atomically funds compensation and a matching Inverse-funded LLv2 incentive.
 contract CurveCompensationContributor is Ownable {
     using SafeERC20 for IERC20;
 
     // Curve treasury holding the sToken shares.
     address public constant TREASURY =
         0x6508eF65b0Bd57eaBD0f1D52685A70433B2d290B;
+
+    address public constant INVERSE_TREASURY =
+        0x9D5Df30F475CEA915b1ed4C0CCa59255C897b61B;
+
+    address public constant SDOLA_LLV2_GAUGE =
+        0x3A55AAb28B4516ceB565a6e0577285C84F53520a;
+
+    uint256 public constant INVERSE_REWARD_EPOCH = 3 weeks;
 
     // Supported sTokens with ERC4626 conversion views, and their underlyings.
     address public constant SDOLA =
@@ -57,7 +72,8 @@ contract CurveCompensationContributor is Ownable {
     address public constant INITIAL_MANAGER =
         0xF90C888E3bB5e9fc90418e72cD2e2bcCFE358628;
 
-    // All budgets are denominated in 18-decimal underlying units, not shares or USD.
+    // Underlying-unit cap PER TREASURY. Each contribution books one matched amount,
+    // so combined gross funding is twice totalContributed (maximum 1,480,000e18).
     uint256 public constant MAX_TOTAL_CONTRIBUTION = 740_000e18;
 
     address public manager = INITIAL_MANAGER;
@@ -68,6 +84,9 @@ contract CurveCompensationContributor is Ownable {
     // False means contribute through Votium.
     // True means send directly to the split contract.
     bool public directToSplit;
+
+    // Independently selected by TWG: false = Votium; true = direct gauge rewards.
+    bool public inverseDirectToGauge;
 
     // Once killed, contributions can never be restarted.
     bool public killed;
@@ -88,12 +107,21 @@ contract CurveCompensationContributor is Ownable {
         uint256 newAmount
     );
 
+    event InverseContributed(
+        uint256 indexed round,
+        address indexed token,
+        uint256 assets,
+        uint256 shares,
+        bool directToGauge
+    );
+
     event ManagerSet(
         address indexed oldManager,
         address indexed newManager
     );
 
     event DirectToSplitSet(bool directToSplit);
+    event InverseDirectToGaugeSet(bool directToGauge);
     event Killed();
 
     event UnprocessedIncentiveRecovered(
@@ -108,8 +136,20 @@ contract CurveCompensationContributor is Ownable {
         uint256 amount
     );
 
+    event InverseUnprocessedIncentiveRecovered(
+        uint256 indexed round,
+        uint256 indexed incentive,
+        address indexed token,
+        uint256 shares
+    );
+
     modifier onlyManager() {
         require(msg.sender == manager, "not manager");
+        _;
+    }
+
+    modifier onlyInverseTreasury() {
+        require(msg.sender == INVERSE_TREASURY, "not inverse treasury");
         _;
     }
 
@@ -128,7 +168,7 @@ contract CurveCompensationContributor is Ownable {
         contributionAmount = contributionAmount_;
     }
 
-    /// @notice Contributes once during the current Votium active round.
+    /// @notice Atomically contributes equal sToken shares from both treasuries once per round.
     /// @param vault Must be either the sDOLA or sfrxUSD vault.
     function contribute(address vault) external {
         require(!killed, "killed");
@@ -169,23 +209,28 @@ contract CurveCompensationContributor is Ownable {
         contributedInRound[round] = true;
         totalContributed += assets;
 
+        bool isDirect = directToSplit;
+        bool isInverseDirect = inverseDirectToGauge;
         IERC20 token = IERC20(vault);
         token.safeTransferFrom(TREASURY, address(this), shares);
-
-        bool isDirect = directToSplit;
+        token.safeTransferFrom(INVERSE_TREASURY, address(this), shares);
 
         if (isDirect) {
             token.safeTransfer(SPLIT, shares);
         } else {
-            // Votium pulls the fee and incentive in two transferFrom calls.
-            token.forceApprove(VOTIUM, shares);
+            _depositVotium(token, shares, DONATION_GAUGE);
+        }
 
-            IVotium(VOTIUM).depositIncentiveSimple(
+        if (isInverseDirect) {
+            token.forceApprove(SDOLA_LLV2_GAUGE, shares);
+            IRewardGauge(SDOLA_LLV2_GAUGE).deposit_reward_token(
                 vault,
                 shares,
-                DONATION_GAUGE
+                INVERSE_REWARD_EPOCH
             );
-            token.forceApprove(VOTIUM, 0);
+            token.forceApprove(SDOLA_LLV2_GAUGE, 0);
+        } else {
+            _depositVotium(token, shares, SDOLA_LLV2_GAUGE);
         }
 
         emit Contributed(
@@ -196,6 +241,14 @@ contract CurveCompensationContributor is Ownable {
             shares,
             isDirect
         );
+        emit InverseContributed(round, vault, assets, shares, isInverseDirect);
+    }
+
+    function _depositVotium(IERC20 token, uint256 shares, address gauge) private {
+        // Each deposit pays its fee out of the gross share amount from that treasury.
+        token.forceApprove(VOTIUM, shares);
+        IVotium(VOTIUM).depositIncentiveSimple(address(token), shares, gauge);
+        token.forceApprove(VOTIUM, 0);
     }
 
     /// @notice Chooses between Votium and direct compensation.
@@ -205,6 +258,12 @@ contract CurveCompensationContributor is Ownable {
         directToSplit = direct;
 
         emit DirectToSplitSet(direct);
+    }
+
+    /// @notice Only the fixed Inverse TWG multisig can choose its incentive route.
+    function setInverseDirectToGauge(bool direct) external onlyInverseTreasury {
+        inverseDirectToGauge = direct;
+        emit InverseDirectToGaugeSet(direct);
     }
 
     /// @notice Permanently disables all future contributions.
@@ -225,6 +284,32 @@ contract CurveCompensationContributor is Ownable {
         uint256 incentive,
         address token
     ) external onlyManager {
+        uint256 recovered = _recoverUnprocessed(round, DONATION_GAUGE, incentive, token);
+        IERC20(token).safeTransfer(SPLIT, recovered);
+
+        emit UnprocessedIncentiveRecovered(round, incentive, token, recovered);
+    }
+
+    /// @notice Returns eligible unprocessed LLv2 Votium incentives to Inverse TWG.
+    /// @dev Does not refund the Votium fee, change accounting, or permit another contribution.
+    ///      Available after kill; Curve's manager cannot recover these incentives.
+    function recoverInverseUnprocessedIncentive(
+        uint256 round,
+        uint256 incentive,
+        address token
+    ) external onlyInverseTreasury {
+        uint256 recovered = _recoverUnprocessed(round, SDOLA_LLV2_GAUGE, incentive, token);
+        IERC20(token).safeTransfer(INVERSE_TREASURY, recovered);
+
+        emit InverseUnprocessedIncentiveRecovered(round, incentive, token, recovered);
+    }
+
+    function _recoverUnprocessed(
+        uint256 round,
+        address gauge,
+        uint256 incentive,
+        address token
+    ) private returns (uint256 recovered) {
         require(
             token == SDOLA || token == SFRXUSD,
             "invalid token"
@@ -236,24 +321,15 @@ contract CurveCompensationContributor is Ownable {
 
         IVotium(VOTIUM).withdrawUnprocessed(
             round,
-            DONATION_GAUGE,
+            gauge,
             incentive
         );
 
-        uint256 recovered =
+        recovered =
             stakedToken.balanceOf(address(this)) -
             balanceBefore;
 
         require(recovered > 0, "wrong token");
-
-        stakedToken.safeTransfer(SPLIT, recovered);
-
-        emit UnprocessedIncentiveRecovered(
-            round,
-            incentive,
-            token,
-            recovered
-        );
     }
 
     /// @notice Returns any accidentally sent ERC20 to the Curve treasury.
