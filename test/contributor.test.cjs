@@ -61,6 +61,46 @@ async function fixture(t, amount = 1000n * unit) {
 }
 
 for (const tokenName of ['sdola', 'sfrxusd']) {
+  test(`${tokenName}: neither recovery route can withdraw a third party's incentive`, async t => {
+    const f = await fixture(t);
+    const token = f[tokenName];
+    const tokenAddress = await token.getAddress();
+    const depositor = await f.caller.getAddress();
+    const contributorAddress = await f.contributor.getAddress();
+    const gross = 100n * unit;
+    await tx(token.mint(depositor, gross * 2n));
+    await tx(token.connect(f.caller).approve(addresses.votium, gross * 2n));
+    for (const gauge of [addresses.gauge, addresses.llv2]) {
+      await tx(f.votium.connect(f.caller).depositIncentiveSimple(tokenAddress, gross, gauge));
+    }
+    await tx(f.votium.setRound(132));
+    const inverseBefore = await token.balanceOf(addresses.inverse);
+    const votiumBefore = await token.balanceOf(addresses.votium);
+    for (const [gauge, signer, method] of [
+      [addresses.gauge, f.manager, 'recoverUnprocessedIncentive'],
+      [addresses.llv2, f.inverse, 'recoverInverseUnprocessedIncentive']
+    ]) {
+      const recover = f.contributor.connect(signer)[method];
+      await assert.rejects(recover.staticCall(131, 0, tokenAddress), /!depositor/);
+      await assert.rejects(tx(recover(131, 0, tokenAddress, { gasLimit: 500000 })));
+      const incentive = await f.votium.incentives(131, gauge, 0);
+      assert.equal(incentive.depositor, depositor);
+      assert.equal(incentive.amount, gross * 98n / 100n);
+    }
+    assert.equal(await token.balanceOf(addresses.votium), votiumBefore);
+    assert.equal(await token.balanceOf(addresses.inverse), inverseBefore);
+    assert.equal(await token.balanceOf(addresses.split), 0n);
+    assert.equal(await token.balanceOf(contributorAddress), 0n);
+    assert.equal(await f.contributor.totalContributed(), 0n);
+    assert.equal(await f.contributor.contributedInRound(131), false);
+    for (const gauge of [addresses.gauge, addresses.llv2]) {
+      await tx(f.votium.connect(f.caller).withdrawUnprocessed(131, gauge, 0));
+    }
+    assert.equal(await token.balanceOf(depositor), votiumBefore);
+  });
+}
+
+for (const tokenName of ['sdola', 'sfrxusd']) {
   for (const direct of [false, true]) {
    for (const inverseDirect of [false, true]) {
     test(`${tokenName}: matched funding, Curve direct=${direct}, Inverse direct=${inverseDirect}`, async t => {

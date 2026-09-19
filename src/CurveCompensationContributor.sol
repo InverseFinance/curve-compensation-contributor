@@ -170,7 +170,7 @@ contract CurveCompensationContributor is Ownable {
 
     /// @notice Atomically contributes equal sToken shares from both treasuries once per round.
     /// @param vault Must be either the sDOLA or sfrxUSD vault.
-    function contribute(address vault) external {
+    function contribute(IERC4626 vault) external {
         require(!killed, "killed");
 
         uint256 round = IVotium(VOTIUM).activeRound();
@@ -185,23 +185,19 @@ contract CurveCompensationContributor is Ownable {
 
         require(remaining > 0, "cap reached");
 
-        uint256 amount = contributionAmount;
-
         // Use only the remaining allocation in the final round.
-        if (amount > remaining) {
-            amount = remaining;
-        }
+        uint256 amount = contributionAmount < remaining ? contributionAmount : remaining;
 
-        require(vault == SDOLA || vault == SFRXUSD, "invalid vault");
+        require(address(vault) == SDOLA || address(vault) == SFRXUSD, "invalid vault");
 
         // Convert the underlying budget to shares, rounding down. Never use
         // previewWithdraw: it rounds up and sfrxUSD withdrawals are disabled.
-        uint256 shares = IERC4626(vault).convertToShares(amount);
+        uint256 shares = vault.convertToShares(amount);
         require(shares > 0, "zero shares");
 
         // Book the actual shares at their reported underlying value at execution.
         // These conversion rates are not market-price or redemption guarantees.
-        uint256 assets = IERC4626(vault).convertToAssets(shares);
+        uint256 assets = vault.convertToAssets(shares);
         require(assets > 0, "zero assets");
         require(assets <= amount, "conversion above budget");
 
@@ -209,9 +205,10 @@ contract CurveCompensationContributor is Ownable {
         contributedInRound[round] = true;
         totalContributed += assets;
 
+        // Snapshot routes so execution and events describe the same choices.
         bool isDirect = directToSplit;
         bool isInverseDirect = inverseDirectToGauge;
-        IERC20 token = IERC20(vault);
+        IERC20 token = vault;
         token.safeTransferFrom(TREASURY, address(this), shares);
         token.safeTransferFrom(INVERSE_TREASURY, address(this), shares);
 
@@ -224,7 +221,7 @@ contract CurveCompensationContributor is Ownable {
         if (isInverseDirect) {
             token.forceApprove(SDOLA_LLV2_GAUGE, shares);
             IRewardGauge(SDOLA_LLV2_GAUGE).deposit_reward_token(
-                vault,
+                address(vault),
                 shares,
                 INVERSE_REWARD_EPOCH
             );
@@ -235,20 +232,19 @@ contract CurveCompensationContributor is Ownable {
 
         emit Contributed(
             round,
-            vault,
-            vault == SDOLA ? DOLA : FRXUSD,
+            address(vault),
+            address(vault) == SDOLA ? DOLA : FRXUSD,
             assets,
             shares,
             isDirect
         );
-        emit InverseContributed(round, vault, assets, shares, isInverseDirect);
+        emit InverseContributed(round, address(vault), assets, shares, isInverseDirect);
     }
 
     function _depositVotium(IERC20 token, uint256 shares, address gauge) private {
         // Each deposit pays its fee out of the gross share amount from that treasury.
         token.forceApprove(VOTIUM, shares);
         IVotium(VOTIUM).depositIncentiveSimple(address(token), shares, gauge);
-        token.forceApprove(VOTIUM, 0);
     }
 
     /// @notice Chooses between Votium and direct compensation.
@@ -319,6 +315,7 @@ contract CurveCompensationContributor is Ownable {
         uint256 balanceBefore =
             stakedToken.balanceOf(address(this));
 
+        // Votium enforces that this contract is the incentive's original depositor.
         IVotium(VOTIUM).withdrawUnprocessed(
             round,
             gauge,
@@ -336,8 +333,6 @@ contract CurveCompensationContributor is Ownable {
     function rescue(address token) external onlyManager {
         IERC20 erc20 = IERC20(token);
         uint256 balance = erc20.balanceOf(address(this));
-
-        require(balance > 0, "zero balance");
 
         erc20.safeTransfer(TREASURY, balance);
 

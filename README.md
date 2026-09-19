@@ -156,6 +156,16 @@ Tests run against a local EVM with mock sTokens whose withdrawal and redemption 
 
 ## Review scope
 
+### V12 recovery finding (F-282379)
+
+The [V12 report](https://v12.sh/runs/8013/public) demonstrates third-party recovery only with a modified Votium mock that omits depositor access control. The configured Votium contract at `0x63942E31E98f1833A234077f47880A66136a2D1e` requires `incentives[round][gauge][index].depositor == msg.sender` in `withdrawUnprocessed()`. Its [Sourcify verification record](https://sourcify.dev/server/v2/contract/1/0x63942E31E98f1833A234077f47880A66136a2D1e?fields=all), checked on 2026-09-19, reports matching runtime bytecode. Recovery intentionally relies on that external ownership check; the finding does not apply to this deployment. Revalidate this dependency if changing Votium.
+
+Regression tests exercise both recovery routes with third-party incentives for each supported token: withdrawals revert with `!depositor`, balances and accounting remain unchanged, and the original depositor can still recover. These are mock-based integration tests, not mainnet-fork tests. The existing balance-delta check also reverts the entire withdrawal if the supplied token is wrong.
+
+Do not apply the report's sample getter interface unchanged: production `incentives()` returns `(token, amount, maxPerVote, distributed, recycled, depositor)`, not `(token, amount, depositor)`.
+
+### Deployment review
+
 Reviewers should verify:
 
 * All hardcoded addresses
