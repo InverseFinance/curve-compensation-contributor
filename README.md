@@ -17,7 +17,7 @@ If either treasury transfer or either incentive leg fails, the entire transactio
 
 ## Status
 
-This contract is a draft and has not been audited or approved for deployment. Votium must allowlist **sDOLA and sfrxUSD themselves** before either Votium route can execute. Allowlisting DOLA/frxUSD does not cover their sTokens. The split's distribution process must support both sTokens. For direct LLv2 rewards, each sToken must be registered on the gauge and this contributor must be its authorized reward distributor. These are deployment prerequisites, not enforced setup actions in this repository.
+This contract is a draft and is not approved for deployment. See the [final integration review](reviews/2026-09-22.md) and the V12 assessment below. Votium must allowlist **sDOLA and sfrxUSD themselves** before either Votium route can execute; both were allowlisted at mainnet block 26,028,833. Allowlisting DOLA/frxUSD does not cover their sTokens. The split's distribution process must support both sTokens. For direct LLv2 rewards, each sToken must be registered on the gauge and this contributor must be its authorized reward distributor. These are deployment prerequisites, not enforced setup actions in this repository.
 
 ## Addresses
 
@@ -149,6 +149,10 @@ pnpm install --frozen-lockfile --ignore-scripts
 pnpm build
 pnpm test
 ```
+
+Run `pnpm test:fork` for integration checks against deployed contracts at mainnet block 26,028,833. Set `FORK_RPC_URL` to a read-only Ethereum RPC with historical state access if the default public endpoint cannot serve that block. This creates a local Ganache fork, impersonates accounts and supplies missing treasury funding and gauge registration only in that fork; it does not broadcast live transactions. Results are written to `artifacts/fork-review-results.json`.
+
+The fork suite includes two explicit reproductions of the known gauge-leftover routing discrepancy, alongside 18 integration checks. Their passing assertions confirm the documented discrepancy; they do not mean it has been fixed. Full distribution to the split's individual recipients and future governance changes are outside these tests.
 
 Build settings: Solidity 0.8.24, optimizer enabled with 200 runs, Shanghai EVM. The build writes compiler output to `artifacts/`.
 

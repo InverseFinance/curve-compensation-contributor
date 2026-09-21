@@ -1,0 +1,93 @@
+{
+  "block": 26028833,
+  "results": [
+    {
+      "name": "sdola: real contracts Curve direct=false, Inverse direct=false",
+      "passed": true
+    },
+    {
+      "name": "sdola: real contracts Curve direct=false, Inverse direct=true",
+      "passed": true
+    },
+    {
+      "name": "sdola: real contracts Curve direct=true, Inverse direct=false",
+      "passed": true
+    },
+    {
+      "name": "sdola: real contracts Curve direct=true, Inverse direct=true",
+      "passed": true
+    },
+    {
+      "name": "sfrxusd: real contracts Curve direct=false, Inverse direct=false",
+      "passed": true
+    },
+    {
+      "name": "sfrxusd: real contracts Curve direct=false, Inverse direct=true",
+      "passed": true
+    },
+    {
+      "name": "sfrxusd: real contracts Curve direct=true, Inverse direct=false",
+      "passed": true
+    },
+    {
+      "name": "sfrxusd: real contracts Curve direct=true, Inverse direct=true",
+      "passed": true
+    },
+    {
+      "name": "sdola: real Votium recovery and third-party ownership",
+      "passed": true
+    },
+    {
+      "name": "sdola leftover misrouting",
+      "shareWei": "5733606047"
+    },
+    {
+      "name": "sdola: direct reward top-up and leftover destination",
+      "passed": true
+    },
+    {
+      "name": "sfrxusd: real Votium recovery and third-party ownership",
+      "passed": true
+    },
+    {
+      "name": "sfrxusd leftover misrouting",
+      "shareWei": "9542726127"
+    },
+    {
+      "name": "sfrxusd: direct reward top-up and leftover destination",
+      "passed": true
+    },
+    {
+      "name": "sdola: real split accepts warehouse funding",
+      "passed": true
+    },
+    {
+      "name": "sdola: real vault conversion bounds",
+      "passed": true
+    },
+    {
+      "name": "sdola: real Inverse allowance failure atomically rolls back",
+      "passed": true
+    },
+    {
+      "name": "sdola: real gauge distributor failure atomically rolls back",
+      "passed": true
+    },
+    {
+      "name": "sfrxusd: real split accepts warehouse funding",
+      "passed": true
+    },
+    {
+      "name": "sfrxusd: real vault conversion bounds",
+      "passed": true
+    },
+    {
+      "name": "sfrxusd: real Inverse allowance failure atomically rolls back",
+      "passed": true
+    },
+    {
+      "name": "sfrxusd: real gauge distributor failure atomically rolls back",
+      "passed": true
+    }
+  ]
+}

@@ -139,7 +139,7 @@ for (const tokenName of ['sdola', 'sfrxusd']) {
       const inverseEvent = receipt.logs.map(l => { try { return f.contributor.interface.parseLog(l); } catch {} }).find(e => e?.name === 'InverseContributed');
       assert.equal(inverseEvent.args.shares, shares); assert.equal(inverseEvent.args.assets, assets);
       assert.equal(inverseEvent.args.directToGauge, inverseDirect);
-      await assert.rejects(f.contributor.connect(f.caller).contribute(tokenName === 'sdola' ? addresses.sfrxusd : addresses.sdola));
+      await assert.rejects(tx(f.contributor.connect(f.caller).contribute(tokenName === 'sdola' ? addresses.sfrxusd : addresses.sdola)));
     });
    }
   }
@@ -162,7 +162,7 @@ test('reduces the final contribution and never exceeds the gross cap', async t =
   const expectedShares = cap * 4n / 5n;
   assert.equal(inverseBefore - await f.sdola.balanceOf(addresses.inverse), expectedShares);
   assert.equal(curveBefore - await f.sdola.balanceOf(addresses.treasury), expectedShares);
-  await tx(f.votium.setRound(133)); await assert.rejects(f.contributor.contribute(addresses.sdola));
+  await tx(f.votium.setRound(133)); await assert.rejects(tx(f.contributor.contribute(addresses.sdola)));
 });
 test('rounds down, books actual value, and leaves unspendable cap dust', async t => {
   const f = await fixture(t, cap); await tx(f.contributor.connect(f.manager).setDirectToSplit(true));
@@ -170,30 +170,30 @@ test('rounds down, books actual value, and leaves unspendable cap dust', async t
   await tx(f.contributor.contribute(addresses.sdola));
   const shares = cap / 3n; assert.equal(await f.sdola.balanceOf(addresses.split), shares);
   assert.equal(await f.contributor.totalContributed(), shares * 3n);
-  await tx(f.votium.setRound(132)); await assert.rejects(f.contributor.contribute(addresses.sdola));
+  await tx(f.votium.setRound(132)); await assert.rejects(tx(f.contributor.contribute(addresses.sdola)));
   assert.equal(await f.contributor.contributedInRound(132), false);
 });
 test('missing approval rolls back the round and cap', async t => {
   const f = await fixture(t);
   await tx(f.sdola.connect(f.treasury).approve(await f.contributor.getAddress(), 0));
-  await assert.rejects(f.contributor.contribute(addresses.sdola));
+  await assert.rejects(tx(f.contributor.contribute(addresses.sdola)));
   assert.equal(await f.contributor.totalContributed(), 0n);
   assert.equal(await f.contributor.contributedInRound(131), false);
 });
 test('missing token allowlisting rolls back the share transfer and accounting', async t => {
   const f = await fixture(t); const before = await f.sdola.balanceOf(addresses.treasury);
   await tx(f.votium.allowToken(addresses.sdola, false));
-  await assert.rejects(f.contributor.contribute(addresses.sdola));
+  await assert.rejects(tx(f.contributor.contribute(addresses.sdola)));
   assert.equal(await f.sdola.balanceOf(addresses.treasury), before);
   assert.equal(await f.contributor.totalContributed(), 0n);
   assert.equal(await f.contributor.contributedInRound(131), false);
 });
 test('rejects zero shares and inconsistent conversions before spending', async t => {
   const f = await fixture(t, 1n);
-  await assert.rejects(f.contributor.contribute(addresses.sdola));
+  await assert.rejects(tx(f.contributor.contribute(addresses.sdola)));
   await tx(f.contributor.setContributionAmount(1000n * unit));
   await tx(f.sdola.setOverBudget(true));
-  await assert.rejects(f.contributor.contribute(addresses.sdola));
+  await assert.rejects(tx(f.contributor.contribute(addresses.sdola)));
   assert.equal(await f.contributor.totalContributed(), 0n);
 });
 for (const tokenName of ['sdola', 'sfrxusd']) {
@@ -204,32 +204,32 @@ for (const tokenName of ['sdola', 'sfrxusd']) {
     const incentive = await f.votium.incentives(131, addresses.gauge, 0);
     await tx(f.votium.setRound(132));
     const other = tokenName === 'sdola' ? addresses.sfrxusd : addresses.sdola;
-    await assert.rejects(f.contributor.connect(f.manager).recoverUnprocessedIncentive(131, 0, other));
+    await assert.rejects(tx(f.contributor.connect(f.manager).recoverUnprocessedIncentive(131, 0, other)));
     await tx(token.setRate(2n * unit));
     await tx(f.contributor.connect(f.manager).kill());
     await tx(f.contributor.connect(f.manager).recoverUnprocessedIncentive(131, 0, await token.getAddress()));
     assert.equal(await token.balanceOf(addresses.split), incentive.amount);
     assert.equal(await f.contributor.totalContributed(), booked);
-    await assert.rejects(f.contributor.connect(f.manager).recoverUnprocessedIncentive(131, 0, await token.getAddress()));
-    await assert.rejects(f.contributor.connect(f.manager).recoverUnprocessedIncentive(131, 0, addresses.dola));
+    await assert.rejects(tx(f.contributor.connect(f.manager).recoverUnprocessedIncentive(131, 0, await token.getAddress())));
+    await assert.rejects(tx(f.contributor.connect(f.manager).recoverUnprocessedIncentive(131, 0, addresses.dola)));
   });
 }
 test('preserves role restrictions and irreversible kill', async t => {
   const f = await fixture(t);
-  await assert.rejects(f.contributor.connect(f.caller).setDirectToSplit(true));
-  await assert.rejects(f.contributor.connect(f.caller).kill());
-  await assert.rejects(f.contributor.connect(f.caller).recoverUnprocessedIncentive(131, 0, addresses.sdola));
-  await assert.rejects(f.contributor.connect(f.manager).setContributionAmount(unit));
+  await assert.rejects(tx(f.contributor.connect(f.caller).setDirectToSplit(true)));
+  await assert.rejects(tx(f.contributor.connect(f.caller).kill()));
+  await assert.rejects(tx(f.contributor.connect(f.caller).recoverUnprocessedIncentive(131, 0, addresses.sdola)));
+  await assert.rejects(tx(f.contributor.connect(f.manager).setContributionAmount(unit)));
   for (const signer of [f.owner, f.manager, f.caller]) {
-    await assert.rejects(f.contributor.connect(signer).setInverseDirectToGauge(true));
-    await assert.rejects(f.contributor.connect(signer).recoverInverseUnprocessedIncentive(131, 0, addresses.sdola));
+    await assert.rejects(tx(f.contributor.connect(signer).setInverseDirectToGauge(true)));
+    await assert.rejects(tx(f.contributor.connect(signer).recoverInverseUnprocessedIncentive(131, 0, addresses.sdola)));
   }
-  await assert.rejects(f.contributor.connect(f.inverse).setDirectToSplit(true));
+  await assert.rejects(tx(f.contributor.connect(f.inverse).setDirectToSplit(true)));
   await tx(f.contributor.connect(f.inverse).setInverseDirectToGauge(true));
   await tx(f.contributor.connect(f.inverse).setInverseDirectToGauge(false));
   await tx(f.contributor.connect(f.manager).kill());
   await tx(f.contributor.setManager(await f.caller.getAddress()));
-  await assert.rejects(f.contributor.contribute(addresses.sdola));
+  await assert.rejects(tx(f.contributor.contribute(addresses.sdola)));
 });
 
 for (const failure of ['inverse allowance', 'inverse balance', 'inverse Votium', 'gauge distributor', 'gauge deposit']) {
@@ -273,13 +273,13 @@ for (const tokenName of ['sdola', 'sfrxusd']) {
     await tx(f.votium.setRound(132));
     await tx(f.contributor.connect(f.manager).kill());
     const other = tokenName === 'sdola' ? addresses.sfrxusd : addresses.sdola;
-    await assert.rejects(f.contributor.connect(f.inverse).recoverInverseUnprocessedIncentive(131, 0, other));
+    await assert.rejects(tx(f.contributor.connect(f.inverse).recoverInverseUnprocessedIncentive(131, 0, other)));
     await tx(f.contributor.connect(f.inverse).recoverInverseUnprocessedIncentive(131, 0, await token.getAddress()));
     assert.equal(await token.balanceOf(addresses.inverse) - inverseBefore, matching.amount);
     assert.equal(await token.balanceOf(addresses.split), 0n);
     assert.equal((await f.votium.incentives(131, addresses.gauge, 0)).amount, compensation.amount);
     assert.equal(await f.contributor.totalContributed(), booked);
-    await assert.rejects(f.contributor.connect(f.inverse).recoverInverseUnprocessedIncentive(131, 0, await token.getAddress()));
+    await assert.rejects(tx(f.contributor.connect(f.inverse).recoverInverseUnprocessedIncentive(131, 0, await token.getAddress())));
     await tx(f.contributor.connect(f.manager).recoverUnprocessedIncentive(131, 0, await token.getAddress()));
     assert.equal(await token.balanceOf(addresses.split), compensation.amount);
   });
