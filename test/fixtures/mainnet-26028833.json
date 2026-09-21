@@ -1,0 +1,405 @@
+{
+  "block": 26028833,
+  "chainId": "0x1",
+  "addresses": {
+    "curve": "0x6508eF65b0Bd57eaBD0f1D52685A70433B2d290B",
+    "inverse": "0x9D5Df30F475CEA915b1ed4C0CCa59255C897b61B",
+    "gauge": "0x3A55AAb28B4516ceB565a6e0577285C84F53520a",
+    "votium": "0x63942E31E98f1833A234077f47880A66136a2D1e",
+    "sdola": "0xb45ad160634c528Cc3D2926d9807104FA3157305",
+    "sfrxusd": "0xcf62F905562626CfcDD2261162a51fd02Fc9c5b6",
+    "split": "0xe04c7d284cB023bdD4bCa0FC848aBEb6F8B56d34",
+    "donation": "0x93B823e54959635ccAbfcf1B313B2Ad2785BFe95"
+  },
+  "curve": {
+    "codeBytes": 4610
+  },
+  "inverse": {
+    "codeBytes": 171
+  },
+  "gauge": {
+    "codeBytes": 11855,
+    "manager": "0xf7Bd34Dd44B92fB2f9C3D2e31aAAd06570a853A6",
+    "factory": "0x64e1a69732fAC63F6790b3d8a34C5D713cC623E6",
+    "lpToken": "0x2b5a321C3cb1F33e1ABECD047C2649D0b4C47eBa",
+    "totalSupply": "10719403292739816927841400550",
+    "rewardCount": "0"
+  },
+  "votium": {
+    "codeBytes": 24442,
+    "owner": "0xe39b8617D571CEe5e75e1EC6B2bb40DdC8CF6Fa3",
+    "round": "132",
+    "fee": "200"
+  },
+  "sdola": {
+    "codeBytes": 9320,
+    "asset": "0x865377367054516e17014CcdED1e7d814EDC9ce4",
+    "decimals": "18",
+    "sharesFor1000": "705310097696180016787",
+    "curveBalance": "215244052341481793743815",
+    "inverseBalance": "0",
+    "allowed": true,
+    "rewardData": [
+      "0x0000000000000000000000000000000000000000",
+      "0x0000000000000000000000000000000000000000",
+      "0",
+      "0",
+      "0",
+      "0"
+    ]
+  },
+  "sfrxusd": {
+    "codeBytes": 1488,
+    "asset": "0xCAcd6fd266aF91b8AeD52aCCc382b4e165586E29",
+    "decimals": "18",
+    "sharesFor1000": "825301059373430469177",
+    "curveBalance": "647805633205984363212052",
+    "inverseBalance": "0",
+    "allowed": true,
+    "rewardData": [
+      "0x0000000000000000000000000000000000000000",
+      "0x0000000000000000000000000000000000000000",
+      "0",
+      "0",
+      "0",
+      "0"
+    ]
+  },
+  "split": {
+    "codeBytes": 89,
+    "code": "0x36602c57343d527f9e4ac34f21c619cefc926c8bd93b54bf5a39c7ab2127a895af1cc0691d7e3dff593da1005b3d3d3d3d363d3d37363d7398254aedb6b2c30b70483064367f0ba24ca862445af43d3d93803e605757fd5bf3"
+  },
+  "donation": {
+    "codeBytes": 45,
+    "code": "0x363d3d373d3d3d363d73ced78da2c749236309774d7415236b7090b3bf275af43d82803e903d91602b57fd5bf3"
+  },
+  "gaugeAbi": [
+    {
+      "name": "recover_remaining",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "_reward_token",
+          "type": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "name": "add_reward",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "_reward_token",
+          "type": "address"
+        },
+        {
+          "name": "_distributor",
+          "type": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "name": "set_reward_distributor",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "_reward_token",
+          "type": "address"
+        },
+        {
+          "name": "_distributor",
+          "type": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "name": "reward_data",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "arg0",
+          "type": "address"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "",
+          "type": "tuple",
+          "components": [
+            {
+              "name": "token",
+              "type": "address"
+            },
+            {
+              "name": "distributor",
+              "type": "address"
+            },
+            {
+              "name": "period_finish",
+              "type": "uint256"
+            },
+            {
+              "name": "rate",
+              "type": "uint256"
+            },
+            {
+              "name": "last_update",
+              "type": "uint256"
+            },
+            {
+              "name": "integral",
+              "type": "uint256"
+            }
+          ]
+        }
+      ],
+      "stateMutability": "view"
+    }
+  ],
+  "votiumAbi": [
+    {
+      "name": "NewIncentive",
+      "type": "event",
+      "inputs": [
+        {
+          "name": "_index",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        },
+        {
+          "name": "_token",
+          "type": "address",
+          "indexed": false,
+          "internalType": "address"
+        },
+        {
+          "name": "_amount",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        },
+        {
+          "name": "_round",
+          "type": "uint256",
+          "indexed": true,
+          "internalType": "uint256"
+        },
+        {
+          "name": "_gauge",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "_maxPerVote",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        },
+        {
+          "name": "_excluded",
+          "type": "address[]",
+          "indexed": false,
+          "internalType": "address[]"
+        },
+        {
+          "name": "_depositor",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "_recycled",
+          "type": "bool",
+          "indexed": false,
+          "internalType": "bool"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "name": "WithdrawUnprocessed",
+      "type": "event",
+      "inputs": [
+        {
+          "name": "_index",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        },
+        {
+          "name": "_round",
+          "type": "uint256",
+          "indexed": true,
+          "internalType": "uint256"
+        },
+        {
+          "name": "_gauge",
+          "type": "address",
+          "indexed": true,
+          "internalType": "address"
+        },
+        {
+          "name": "_amount",
+          "type": "uint256",
+          "indexed": false,
+          "internalType": "uint256"
+        }
+      ],
+      "anonymous": false
+    },
+    {
+      "name": "activeRound",
+      "type": "function",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "name": "depositIncentiveSimple",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "_token",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "_amount",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "_gauge",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    },
+    {
+      "name": "incentives",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [
+        {
+          "name": "token",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "amount",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "maxPerVote",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "distributed",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "recycled",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "depositor",
+          "type": "address",
+          "internalType": "address"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "name": "withdrawUnprocessed",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "_round",
+          "type": "uint256",
+          "internalType": "uint256"
+        },
+        {
+          "name": "_gauge",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "_incentive",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    }
+  ],
+  "splitAbi": [
+    {
+      "name": "SPLITS_WAREHOUSE",
+      "type": "function",
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "",
+          "type": "address",
+          "internalType": "contract ISplitsWarehouse"
+        }
+      ],
+      "stateMutability": "view"
+    },
+    {
+      "name": "depositToWarehouse",
+      "type": "function",
+      "inputs": [
+        {
+          "name": "_token",
+          "type": "address",
+          "internalType": "address"
+        },
+        {
+          "name": "_amount",
+          "type": "uint256",
+          "internalType": "uint256"
+        }
+      ],
+      "outputs": [],
+      "stateMutability": "nonpayable"
+    }
+  ]
+}
