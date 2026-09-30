@@ -117,7 +117,7 @@ async function main() {
     assert.equal(await warehouse.balanceOf(A.split,BigInt(A[name]))-before,amount);
    });
    await check(`${name}: real vault conversion bounds`,async()=>{
-    for(const amount of [1n,2n,1000n,10n**12n,10n**18n,1000n*10n**18n,700000n*10n**18n]) {
+    for(const amount of [1n,2n,1000n,10n**12n,10n**18n,1000n*10n**18n,await contributor.MAX_TOTAL_CONTRIBUTION()]) {
      const shares=await tokens[name].convertToShares(amount);const assets=await tokens[name].convertToAssets(shares);
      assert(assets<=amount);assert(assets>=0n);
     }

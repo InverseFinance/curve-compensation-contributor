@@ -5,7 +5,7 @@ const { ethers } = require('ethers');
 const { compile } = require('../scripts/compile.cjs');
 const compiled = compile(true);
 const unit = 10n ** 18n;
-const cap = 700000n * unit;
+const cap = 500000n * unit;
 const addresses = {
   treasury: '0x6508eF65b0Bd57eaBD0f1D52685A70433B2d290B',
   inverse: '0x9D5Df30F475CEA915b1ed4C0CCa59255C897b61B',
@@ -151,6 +151,20 @@ test('uses the current exchange rate each round', async t => {
   await tx(f.contributor.contribute(addresses.sdola));
   assert.equal(await f.sdola.balanceOf(addresses.split), 800n * unit + 500n * unit);
   assert.equal(await f.contributor.totalContributed(), 2000n * unit);
+});
+test('enforces the 500,000 cap in construction and budget updates', async t => {
+  const f = await fixture(t, cap);
+  assert.equal(await f.contributor.MAX_TOTAL_CONTRIBUTION(), cap);
+  assert.equal(await f.contributor.contributionAmount(), cap);
+  await tx(f.contributor.setContributionAmount(cap));
+  await assert.rejects(tx(f.contributor.setContributionAmount(cap + 1n, { gasLimit: 500000 })));
+  assert.equal(await f.contributor.contributionAmount(), cap);
+  const art = compiled['src/CurveCompensationContributor.sol'].CurveCompensationContributor;
+  const factory = new ethers.ContractFactory(art.abi, art.evm.bytecode.object, f.owner);
+  await assert.rejects(async () => {
+    const invalid = await factory.deploy(await f.owner.getAddress(), cap + 1n, { gasLimit: 3000000 });
+    await invalid.waitForDeployment();
+  });
 });
 test('reduces the final contribution and never exceeds the gross cap', async t => {
   const f = await fixture(t, 400000n * unit);

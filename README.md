@@ -53,10 +53,12 @@ Only one contribution can be made during each Votium active round, regardless of
 The contract may contribute no more than the following amount **from each treasury**:
 
 ```text
-700,000 underlying tokens
+500,000 underlying tokens
 ```
 
-`totalContributed` records the matched amount once, not twice. Gross combined funding is therefore `2 * totalContributed`, capped at 1,400,000 nominal underlying units. The same cap reduction and rounding apply to both treasury debits.
+`totalContributed` records the matched amount once, not twice. Gross combined funding is therefore `2 * totalContributed`, capped at 1,000,000 nominal underlying units. The same cap reduction and rounding apply to both treasury debits.
+
+The cap was reduced from 700,000 to 500,000 per treasury on 30 September 2026. The programme reports less than $690,000 remaining to compensate, and Votium incentive efficiency is expected to translate a smaller incentive spend into the required compensation. The cap is a ceiling, not a spending target or a guarantee of incentive efficiency. Once the compensation target is reached, the manager can permanently stop further contributions with `kill()`; the contract does not track the external compensation target automatically.
 
 The final contribution budget is reduced automatically if the remaining allocation is smaller than the configured contribution amount.
 
