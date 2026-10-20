@@ -23,6 +23,7 @@ This contract is a draft and is not approved for deployment. See the [final inte
 
 | Role               | Address                                      |
 | ------------------ | -------------------------------------------- |
+| Initial owner (Curve Ownership Agent) | `0x40907540d8a6C65c637785e8f8B742ae6b0b9968` |
 | Curve treasury     | `0x6508eF65b0Bd57eaBD0f1D52685A70433B2d290B` |
 | Inverse TWG treasury | `0x9D5Df30F475CEA915b1ed4C0CCa59255C897b61B` |
 | sDOLA LLv2 gauge    | `0x3A55AAb28B4516ceB565a6e0577285C84F53520a` |
@@ -85,6 +86,8 @@ The Inverse route calls the three-argument `deposit_reward_token` overload with 
 ## Roles
 
 ### Curve DAO owner
+
+Ownership starts at the hardcoded Curve Ownership Agent (`INITIAL_OWNER`), regardless of who deploys the contract. The constructor takes only the initial contribution amount. The current owner retains the inherited `transferOwnership(address)` function and can transfer ownership after deployment.
 
 The owner may:
 
@@ -175,7 +178,7 @@ Do not apply the report's sample getter interface unchanged: production `incenti
 Reviewers should verify:
 
 * All hardcoded addresses
-* The Curve DAO owner address used at deployment
+* The hardcoded initial Curve Ownership Agent and the current owner after any ownership transfer
 * Share conversion, rounding and ERC-20 allowance behaviour
 * Votium allowlisting and distribution support for sDOLA and sfrxUSD
 * Votium round and unprocessed-incentive behaviour

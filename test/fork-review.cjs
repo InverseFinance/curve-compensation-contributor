@@ -5,19 +5,23 @@ const { ethers } = require('ethers');
 const { compile } = require('../scripts/compile.cjs');
 const pre = require('./fixtures/mainnet-26028833.json');
 const A = pre.addresses;
+const initialOwner = '0x40907540d8a6C65c637785e8f8B742ae6b0b9968';
 const gaugeAbi = pre.gaugeAbi;
 const votiumAbi = pre.votiumAbi;
 const tokenAbi = ['function balanceOf(address) view returns(uint256)','function transfer(address,uint256) returns(bool)','function approve(address,uint256) returns(bool)','function allowance(address,address) view returns(uint256)','function convertToAssets(uint256) view returns(uint256)','function convertToShares(uint256) view returns(uint256)'];
 const results = [];
 async function tx(p) {return (await p).wait();}
 async function main() {
- const chain = ganache.provider({fork:{url:process.env.FORK_RPC_URL || 'https://ethereum-rpc.publicnode.com',blockNumber:pre.block},logging:{quiet:true},chain:{hardfork:'shanghai'},wallet:{deterministic:true,unlockedAccounts:[A.curve,A.inverse,pre.gauge.manager,pre.votium.owner]}});
+ const chain = ganache.provider({fork:{url:process.env.FORK_RPC_URL || 'https://ethereum-rpc.publicnode.com',blockNumber:pre.block},logging:{quiet:true},chain:{hardfork:'shanghai'},wallet:{deterministic:true,unlockedAccounts:[initialOwner,A.curve,A.inverse,pre.gauge.manager,pre.votium.owner]}});
  const provider = new ethers.BrowserProvider(chain); provider.pollingInterval=10;
  try {
-  const owner=await provider.getSigner(0), manager=await provider.getSigner(1), caller=await provider.getSigner(2);
+  const deployer=await provider.getSigner(0), owner=await provider.getSigner(initialOwner), manager=await provider.getSigner(1), caller=await provider.getSigner(2);
   const art=compile()['src/CurveCompensationContributor.sol'].CurveCompensationContributor;
-  const contributor=await new ethers.ContractFactory(art.abi,art.evm.bytecode.object,owner).deploy(await owner.getAddress(),ethers.parseEther('1000'));
+  const deployed=await new ethers.ContractFactory(art.abi,art.evm.bytecode.object,deployer).deploy(ethers.parseEther('1000'));
+  const contributor=deployed.connect(owner);
   await contributor.waitForDeployment(); const ca=await contributor.getAddress();
+  assert.equal(await contributor.owner(),initialOwner);
+  await provider.send('evm_setAccountBalance',[initialOwner,ethers.toQuantity(ethers.parseEther('100'))]);
   await tx(contributor.setManager(await manager.getAddress()));
   for(const addr of [A.curve,A.inverse,pre.gauge.manager,pre.votium.owner]) await provider.send('evm_setAccountBalance',[addr,ethers.toQuantity(ethers.parseEther('100'))]);
   const curve=await provider.getSigner(A.curve), inverse=await provider.getSigner(A.inverse), gm=await provider.getSigner(pre.gauge.manager);
