@@ -7,6 +7,7 @@ const compiled = compile(true);
 const unit = 10n ** 18n;
 const cap = 500000n * unit;
 const addresses = {
+  owner: '0x40907540d8a6C65c637785e8f8B742ae6b0b9968',
   treasury: '0x6508eF65b0Bd57eaBD0f1D52685A70433B2d290B',
   inverse: '0x9D5Df30F475CEA915b1ed4C0CCa59255C897b61B',
   llv2: '0x3A55AAb28B4516ceB565a6e0577285C84F53520a',
@@ -20,16 +21,19 @@ const addresses = {
 async function tx(promise) { return (await promise).wait(); }
 async function fixture(t, amount = 1000n * unit) {
   const chain = ganache.provider({ logging: { quiet: true },
-    chain: { hardfork: 'shanghai' }, wallet: { deterministic: true, unlockedAccounts: [addresses.treasury, addresses.inverse] } });
+    chain: { hardfork: 'shanghai' }, wallet: { deterministic: true, unlockedAccounts: [addresses.owner, addresses.treasury, addresses.inverse] } });
   const provider = new ethers.BrowserProvider(chain);
   provider.pollingInterval = 10;
-  const owner = await provider.getSigner(0);
+  const deployer = await provider.getSigner(0);
+  const owner = await provider.getSigner(addresses.owner);
   const manager = await provider.getSigner(1);
   const caller = await provider.getSigner(2);
   t.after(async () => { provider.destroy(); await chain.disconnect(); });
   const art = compiled['src/CurveCompensationContributor.sol'].CurveCompensationContributor;
-  const contributor = await new ethers.ContractFactory(art.abi, art.evm.bytecode.object, owner).deploy(await owner.getAddress(), amount);
-  await contributor.waitForDeployment();
+  const deployed = await new ethers.ContractFactory(art.abi, art.evm.bytecode.object, deployer).deploy(amount);
+  await deployed.waitForDeployment();
+  const contributor = deployed.connect(owner);
+  await provider.send('evm_setAccountBalance', [addresses.owner, '0x56bc75e2d63100000']);
   await tx(contributor.setManager(await manager.getAddress()));
   const tokenArt = compiled['test/Mocks.sol'].MockStakedToken;
   const votiumArt = compiled['test/Mocks.sol'].MockVotium;
@@ -57,8 +61,25 @@ async function fixture(t, amount = 1000n * unit) {
     await tx(gauge.setDistributor(await token.getAddress(), await contributor.getAddress()));
   }
   await tx(votium.setRound(131));
-  return { provider, owner, manager, caller, treasury, inverse, contributor, sdola, sfrxusd, votium, gauge };
+  return { provider, deployer, owner, manager, caller, treasury, inverse, contributor, sdola, sfrxusd, votium, gauge };
 }
+
+test('starts with the Curve Ownership Agent and preserves owner-controlled transfers', async t => {
+  const f = await fixture(t);
+  assert.equal(await f.contributor.INITIAL_OWNER(), addresses.owner);
+  assert.equal(await f.contributor.owner(), addresses.owner);
+  await assert.rejects(f.contributor.connect(f.deployer).setContributionAmount.staticCall(unit), /OwnableUnauthorizedAccount/);
+  const newOwner = await f.caller.getAddress();
+  await assert.rejects(f.contributor.connect(f.deployer).transferOwnership.staticCall(newOwner), /OwnableUnauthorizedAccount/);
+  await tx(f.contributor.transferOwnership(newOwner));
+  assert.equal(await f.contributor.owner(), newOwner);
+  await assert.rejects(f.contributor.setContributionAmount.staticCall(unit), /OwnableUnauthorizedAccount/);
+  await assert.rejects(f.contributor.setManager.staticCall(await f.deployer.getAddress()), /OwnableUnauthorizedAccount/);
+  await tx(f.contributor.connect(f.caller).setContributionAmount(2000n * unit));
+  await tx(f.contributor.connect(f.caller).setManager(await f.deployer.getAddress()));
+  assert.equal(await f.contributor.contributionAmount(), 2000n * unit);
+  assert.equal(await f.contributor.manager(), await f.deployer.getAddress());
+});
 
 for (const tokenName of ['sdola', 'sfrxusd']) {
   test(`${tokenName}: neither recovery route can withdraw a third party's incentive`, async t => {
@@ -162,7 +183,7 @@ test('enforces the 500,000 cap in construction and budget updates', async t => {
   const art = compiled['src/CurveCompensationContributor.sol'].CurveCompensationContributor;
   const factory = new ethers.ContractFactory(art.abi, art.evm.bytecode.object, f.owner);
   await assert.rejects(async () => {
-    const invalid = await factory.deploy(await f.owner.getAddress(), cap + 1n, { gasLimit: 3000000 });
+    const invalid = await factory.deploy(cap + 1n, { gasLimit: 3000000 });
     await invalid.waitForDeployment();
   });
 });

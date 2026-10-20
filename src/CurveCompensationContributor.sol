@@ -34,6 +34,10 @@ interface IRewardGauge {
 contract CurveCompensationContributor is Ownable {
     using SafeERC20 for IERC20;
 
+    // Curve Ownership Agent; the owner may transfer ownership after deployment.
+    address public constant INITIAL_OWNER =
+        0x40907540d8a6C65c637785e8f8B742ae6b0b9968;
+
     // Curve treasury holding the sToken shares.
     address public constant TREASURY =
         0x6508eF65b0Bd57eaBD0f1D52685A70433B2d290B;
@@ -153,12 +157,10 @@ contract CurveCompensationContributor is Ownable {
         _;
     }
 
-    /// @param owner_ Curve DAO executor or other DAO-controlled owner.
     /// @param contributionAmount_ Initial underlying-unit budget per Votium round.
     constructor(
-        address owner_,
         uint256 contributionAmount_
-    ) Ownable(owner_) {
+    ) Ownable(INITIAL_OWNER) {
         require(contributionAmount_ > 0, "zero amount");
         require(
             contributionAmount_ <= MAX_TOTAL_CONTRIBUTION,
