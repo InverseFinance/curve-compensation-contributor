@@ -138,7 +138,7 @@ Neither treasury needs to approve DOLA or frxUSD. For the direct Inverse route, 
 
 ## Dependencies
 
-* Solidity `0.8.24`
+* Solidity `0.8.37`
 * OpenZeppelin Contracts 5.3.0
 * Votium incentive contract
 * ERC-20 sDOLA and sfrxUSD, with ERC-4626 conversion views
@@ -159,7 +159,9 @@ Run `pnpm test:fork` for integration checks against deployed contracts at mainne
 
 The fork suite includes two explicit reproductions of the known gauge-leftover routing discrepancy, alongside 18 integration checks. Their passing assertions confirm the documented discrepancy; they do not mean it has been fixed. Full distribution to the split's individual recipients and future governance changes are outside these tests.
 
-Build settings: Solidity 0.8.24, optimizer enabled with 200 runs, Shanghai EVM. The build writes compiler output to `artifacts/`.
+Build settings: Solidity 0.8.37, optimizer enabled with 200 runs, Shanghai EVM. The build writes compiler output to `artifacts/`.
+
+The [0.8.37 upgrade validation](reviews/2026-10-21-solc-0.8.37.md) records the compiler comparison, 29 passing unit tests, the additional 22-scenario fork review at block 26,235,731, and local checks of both deployment formats. Shanghai remains explicit to reproduce the tested deployment artifacts. Compiling this contract for Osaka with the same compiler and settings produces identical executable creation and runtime code after removing compiler metadata.
 
 Tests run against a local EVM with mock sTokens whose withdrawal and redemption functions always revert. Coverage includes both tokens and all four route combinations, equal treasury debits, changing share rates, downward rounding, cap exhaustion and dust, TWG-only controls, recovery isolation after kill, the three-week epoch, and whole-transaction rollback on missing Inverse funds/allowance, failed LLv2 Votium deposits and failed direct gauge deposits. The Votium and gauge mocks are not substitutes for validating the deployed contracts' full processing and reward-distribution rules on a mainnet fork.
 
