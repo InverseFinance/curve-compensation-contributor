@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "contract": "CurveCompensationContributor",
+  "chainId": 1,
+  "network": "Ethereum mainnet",
+  "address": "0xE15841FAf70Dc0D8e84Ab709F8A65dDDA217449b",
+  "deployment": {
+    "transactionHash": "0x6b240ab23f44b24e5e7652c7bf4138c1aea81a2d6f02bcf5d09a9932e2f91e13",
+    "blockNumber": 26243273,
+    "blockHash": "0x5735d1d061e35bded009944369a79fe979126e6ecfd3bb723d02fc608dfa3411",
+    "timestampUTC": "2026-10-21T20:08:35.000Z",
+    "deployer": "0xec092c15e8d5a48a77cde36827f8e228ce39471a",
+    "nonce": "4422",
+    "valueWei": "0",
+    "gasUsed": "1459641"
+  },
+  "compiler": {
+    "version": "0.8.37+commit.f401782d",
+    "language": "Solidity",
+    "optimizer": {
+      "enabled": true,
+      "runs": 200
+    },
+    "evmVersion": "shanghai",
+    "viaIR": false
+  },
+  "source": {
+    "repository": "https://github.com/InverseFinance/curve-compensation-contributor",
+    "referenceCommit": "9a3fb93031849d3b728f23fb2c44567fefad0d7e",
+    "repositoryContract": "src/CurveCompensationContributor.sol",
+    "verifiedContract": "CurveCompensationContributor.sol:CurveCompensationContributor",
+    "openZeppelinVersion": "5.3.0",
+    "repositoryExecutableMatchesDeployment": true,
+    "differences": [
+      "The verified Remix source pins @openzeppelin/contracts@5.3.0 directly in its import paths; the repository pins the same package version in package.json and pnpm-lock.yaml.",
+      "Source paths and line endings differ. Executable creation/runtime bytecode and ABI match; compiler metadata differs."
+    ]
+  },
+  "verification": {
+    "explorer": "Etherscan",
+    "status": "Pass - Verified",
+    "url": "https://etherscan.io/address/0xE15841FAf70Dc0D8e84Ab709F8A65dDDA217449b#code",
+    "standardJsonInput": "standard-input.json",
+    "inputSha256": "756a6b79ace71738b7eb1d15ac51188a4fbba6f896d5a3838689082fceb16b6c",
+    "sourceFileCount": 11
+  },
+  "constructor": {
+    "types": [
+      "uint256"
+    ],
+    "arguments": {
+      "contributionAmount_": "10000000000000000000000"
+    },
+    "encodedArguments": "0x00000000000000000000000000000000000000000000021e19e0c9bab2400000",
+    "note": "This records the historical deployment input. It is not an approved funding commitment, a recommended budget, or a claim about the current contribution amount."
+  },
+  "bytecode": {
+    "creationKeccak256": "0x1db93b4f0eb328a62b44497e37cd5ed65aaaa8ebb5e276c02cdaca40cb629114",
+    "runtimeKeccak256": "0x9ab8efca3e0fb192ab40d43176c0751ae35dc86f82b142651ce44ae23ed5689a",
+    "deploymentInputKeccak256": "0x4854f5a17e78c9909590bd92ea2d49260d1c6dfe279c356e561e578ca65d29e3",
+    "runtimeBytes": 6162,
+    "metadataBytecodeHash": "ipfs"
+  },
+  "initialReadback": {
+    "block": {
+      "number": 26243301,
+      "hash": "0xf6cb53b99094237e49bc0df31536fac14ccc4233956a0b27f255f55ff747a768",
+      "timestamp": 1792613651
+    },
+    "owner": "0x40907540d8a6c65c637785e8f8b742ae6b0b9968",
+    "manager": "0xf90c888e3bb5e9fc90418e72cd2e2bccfe358628",
+    "contributionAmount": "10000000000000000000000",
+    "maxTotalContributionPerTreasury": "500000000000000000000000",
+    "totalContributed": "0",
+    "directToSplit": false,
+    "inverseDirectToGauge": false,
+    "killed": false,
+    "allDeploymentChecksPassed": true,
+    "note": "Readback is a historical snapshot at the specified block. Read live state before preparing approvals or contributions."
+  },
+  "earlierDeployment": {
+    "address": "0x530b12baAf1B8aec9506De337dd27bB001549F08",
+    "note": "Earlier flattened, unoptimized deployment. The address at the top of this record is the optimized deployment to reference for the planned programme. This record does not claim that the earlier contract has been disabled."
+  },
+  "governance": "Programme adoption, contribution terms, Curve treasury funding and approvals require Curve DAO approval. Inverse matching funding and allowances require separate treasury authorization. Deployment and source verification do not authorize spending."
+}

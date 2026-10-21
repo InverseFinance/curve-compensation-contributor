@@ -1,0 +1,2 @@
+# Preserve the verification archive checksum across operating systems.
+deployments/ethereum-mainnet/standard-input.json text eol=lf

@@ -19,7 +19,22 @@ If either treasury transfer or either incentive leg fails, the entire transactio
 
 The hardcoded initial Curve Ownership Agent and Solidity 0.8.37 upgrade are merged into `main`. Validation completed on 21 October 2026 includes 29 passing unit tests, 22 passing mainnet-fork scenarios with each compiler version, local deployment checks for the original and flattened sources, and delivery and withdrawal of both sTokens through all 15 split recipients. See the [current validation report](reviews/2026-10-21-solc-0.8.37.md).
 
-No mainnet deployment address is recorded in this repository. Use of the contributor, its contribution budget and Curve treasury funding require Curve DAO approval; Inverse's matching funding requires its own treasury authorization. Technical validation does not grant either treasury a spending authorization.
+The Ethereum mainnet contract is deployed and [verified on Etherscan](https://etherscan.io/address/0xE15841FAf70Dc0D8e84Ab709F8A65dDDA217449b#code) at `0xE15841FAf70Dc0D8e84Ab709F8A65dDDA217449b`. The [deployment record](deployments/ethereum-mainnet/) includes the transaction, compiler settings, bytecode hashes, exact verification input and initial state readback.
+
+Use of the contributor, its contribution budget and Curve treasury funding require Curve DAO approval; Inverse's matching funding requires its own treasury authorization. Deployment and source verification do not grant either treasury a spending authorization. The constructor input records an initial onchain setting, not approved funding terms; the owner may change the contribution amount within the contract's limits.
+
+## Mainnet deployment
+
+| Item | Value |
+| --- | --- |
+| Network | Ethereum mainnet, chain ID `1` |
+| Contributor | [`0xE15841FAf70Dc0D8e84Ab709F8A65dDDA217449b`](https://etherscan.io/address/0xE15841FAf70Dc0D8e84Ab709F8A65dDDA217449b#code) |
+| Deployment transaction | [`0x6b240ab23f44b24e5e7652c7bf4138c1aea81a2d6f02bcf5d09a9932e2f91e13`](https://etherscan.io/tx/0x6b240ab23f44b24e5e7652c7bf4138c1aea81a2d6f02bcf5d09a9932e2f91e13) |
+| Deployment block | `26,243,273` |
+| Verification | Etherscan; 11 separate Solidity source files |
+| Exact deployment files | [Deployment record](deployments/ethereum-mainnet/deployment.json) and [Standard JSON compiler input](deployments/ethereum-mainnet/standard-input.json) |
+
+The repository retains its standard npm imports, with OpenZeppelin Contracts pinned to 5.3.0. Remix used explicit versioned import paths and different source paths/line endings. The executable creation/runtime code and ABI match the repository build; compiler metadata differs. The archived input reproduces the complete deployed bytecode, including metadata. Run `node scripts/check-deployment.cjs` after installing dependencies to check both builds offline.
 
 ## Build and initialization
 
@@ -43,6 +58,7 @@ Shanghai reproduces the tested deployment artifacts. A separate Osaka compilatio
 
 | Role               | Address                                      |
 | ------------------ | -------------------------------------------- |
+| Deployed contributor | [`0xE15841FAf70Dc0D8e84Ab709F8A65dDDA217449b`](https://etherscan.io/address/0xE15841FAf70Dc0D8e84Ab709F8A65dDDA217449b#code) |
 | Initial owner (Curve Ownership Agent) | `0x40907540d8a6C65c637785e8f8B742ae6b0b9968` |
 | Curve treasury     | `0x6508eF65b0Bd57eaBD0f1D52685A70433B2d290B` |
 | Inverse TWG treasury | `0x9D5Df30F475CEA915b1ed4C0CCa59255C897b61B` |
@@ -207,7 +223,7 @@ The [22 September integration review](reviews/2026-09-22.md) preserves its histo
 2. Check the deployed runtime and fixed addresses against the compiled artifact. Read back `owner()`, `manager()`, `contributionAmount()`, `MAX_TOTAL_CONTRIBUTION()`, `totalContributed()`, both route flags and `killed()`. The initial accounting is zero, both routes are Votium, and the contract is not killed.
 3. Obtain the required governance and treasury authorizations, then arrange the chosen sToken's spending approval from each treasury to the deployed contributor. The Curve DAO owner can update the contribution amount after deployment. Check current share balances, conversions, Votium allowlisting and platform fee before the first contribution.
 4. If using direct Inverse rewards, complete reward-token registration and distributor setup on the LLv2 gauge. If using direct Curve compensation, use the existing split configuration and supported distribution process.
-5. Simulate the actual treasury approval payloads and first contribution with the deployed address before execution. Record the deployment address, transaction and source-verification link in this repository once available.
+5. Simulate the actual treasury approval payloads and first contribution with the recorded mainnet address before execution. Preserve the deployment and verification evidence in this repository; update the relevant records if a replacement deployment is adopted.
 6. Execute and reconcile contributions by active Votium round. Monitor the external compensation target and use `kill()` when the programme is complete. The code cap does not automatically track completion of compensation.
 
 ## Licence
