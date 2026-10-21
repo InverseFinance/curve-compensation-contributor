@@ -1,6 +1,6 @@
 # Curve Compensation Contributor
 
-Draft smart contract for the LlamaLend sDOLA exploit compensation programme.
+Smart contract for the LlamaLend sDOLA exploit compensation programme.
 
 The contract pairs Curve DAO-funded compensation with an equal Inverse DAO-funded incentive for the sDOLA LLv2 gauge, once per active Votium round. Each execution transfers the **same sToken and exactly the same number of shares from each treasury**, atomically. Budgets and the lifetime cap remain denominated in underlying DOLA/frxUSD units per treasury. The contract does not redeem shares or call vault withdrawal functions.
 
@@ -9,7 +9,7 @@ Curve's compensation can be routed either:
 * Through Votium as an sToken incentive for the compensation donation gauge; or
 * Directly to the compensation split contract, also in sTokens.
 
-The route is selected by a manager multisig. The Curve DAO owns the contract and may change the manager or the contribution amount.
+The route is selected by a manager multisig. Ownership starts with the Curve DAO's Ownership Agent, which may change the manager or the contribution amount and transfer ownership later.
 
 Inverse's matching contribution always targets the sDOLA LLv2 gauge. The fixed Inverse TWG multisig alone selects whether to deposit it into Votium or directly into the gauge through `deposit_reward_token(token, shares, 3 weeks)`. This toggle is independent of Curve's compensation route. Both routes default to Votium.
 
@@ -17,7 +17,27 @@ If either treasury transfer or either incentive leg fails, the entire transactio
 
 ## Status
 
-This contract is a draft and is not approved for deployment. See the [final integration review](reviews/2026-09-22.md) and the V12 assessment below. Votium must allowlist **sDOLA and sfrxUSD themselves** before either Votium route can execute; both were allowlisted at mainnet block 26,028,833. Allowlisting DOLA/frxUSD does not cover their sTokens. The split's distribution process must support both sTokens. For direct LLv2 rewards, each sToken must be registered on the gauge and this contributor must be its authorized reward distributor. These are deployment prerequisites, not enforced setup actions in this repository.
+The hardcoded initial Curve Ownership Agent and Solidity 0.8.37 upgrade are merged into `main`. Validation completed on 21 October 2026 includes 29 passing unit tests, 22 passing mainnet-fork scenarios with each compiler version, local deployment checks for the original and flattened sources, and delivery and withdrawal of both sTokens through all 15 split recipients. See the [current validation report](reviews/2026-10-21-solc-0.8.37.md).
+
+No mainnet deployment address is recorded in this repository. Use of the contributor, its contribution budget and Curve treasury funding require Curve DAO approval; Inverse's matching funding requires its own treasury authorization. Technical validation does not grant either treasury a spending authorization.
+
+## Build and initialization
+
+| Setting | Value |
+| --- | --- |
+| Network | Ethereum mainnet, chain ID `1` |
+| Solidity compiler | `0.8.37+commit.f401782d` |
+| EVM target | `shanghai` |
+| Optimizer | Enabled, 200 runs |
+| IR pipeline | Disabled |
+| Constructor input | `contributionAmount_`: a positive per-treasury budget in 18-decimal underlying units, at most `MAX_TOTAL_CONTRIBUTION` |
+| Initial owner | Curve Ownership Agent, hardcoded as `INITIAL_OWNER` |
+| Initial routes | Both Votium |
+| ETH transaction value | `0`; deployment gas is paid separately |
+
+The constructor takes only the contribution amount; the contract defines no default contribution budget. The initial amount is supplied at deployment, and the current owner may later change it with `setContributionAmount(uint256)`, within the contract's limits. The deployer receives no owner or manager permissions merely by deploying the contract. Both supported underlyings have 18 decimals; the configured amount is a nominal underlying-unit budget, not a USD price guarantee.
+
+Shanghai reproduces the tested deployment artifacts. A separate Osaka compilation with the same compiler, optimizer and pipeline produced identical executable creation and runtime code after removing metadata; the verification metadata differs. The [validation report](reviews/2026-10-21-solc-0.8.37.md) records this comparison.
 
 ## Addresses
 
@@ -38,7 +58,7 @@ This contract is a draft and is not approved for deployment. See the [final inte
 
 ## Contribution lifecycle
 
-1. The Curve DAO sets a contribution budget in 18-decimal underlying units.
+1. An initial contribution budget in 18-decimal underlying units is supplied at deployment. The Curve DAO owner may change it later.
 2. Both treasuries approve the contract to spend the sTokens they intend to use and hold enough shares for a matched contribution.
 3. Any address may call `contribute` with either supported vault.
 4. The contract checks that no contribution has been made during the current Votium active round.
@@ -59,7 +79,7 @@ The contract may contribute no more than the following amount **from each treasu
 
 `totalContributed` records the matched amount once, not twice. Gross combined funding is therefore `2 * totalContributed`, capped at 1,000,000 nominal underlying units. The same cap reduction and rounding apply to both treasury debits.
 
-The cap was reduced from 700,000 to 500,000 per treasury on 30 September 2026. The programme reports less than $690,000 remaining to compensate, and Votium incentive efficiency is expected to translate a smaller incentive spend into the required compensation. The cap is a ceiling, not a spending target or a guarantee of incentive efficiency. Once the compensation target is reached, the manager can permanently stop further contributions with `kill()`; the contract does not track the external compensation target automatically.
+The cap was reduced from 700,000 to 500,000 per treasury on 30 September 2026. The cap is a ceiling, not a spending target or a guarantee of incentive efficiency. The remaining compensation target must be reconciled during operation. Once it is reached, the manager can permanently stop further contributions with `kill()`; the contract does not track the external compensation target automatically.
 
 The final contribution budget is reduced automatically if the remaining allocation is smaller than the configured contribution amount.
 
@@ -77,8 +97,6 @@ Conversion rounds down, so the amount booked can be slightly below the budget. A
 
 Share value is recorded once, at contribution execution, using the sToken's conversion views. Subsequent yield, share-price changes or incentive recovery do not change historical accounting or reopen the allocation. These views are trusted valuation inputs, not guaranteed redemption proceeds.
 
-Example: with a 1,000 underlying-unit budget and 1.25 underlying units per share, the contract transfers 800 sTokens from Curve and 800 from Inverse, and increases `totalContributed` by 1,000. At a 2% Votium fee, each Votium leg deposits 784 net reward shares and pays 16 shares in fees; a direct leg deposits 800 shares.
-
 ## Direct LLv2 reward schedule
 
 The Inverse route calls the three-argument `deposit_reward_token` overload with a fixed epoch of **1,814,400 seconds (21 days)**. The verified gauge accepts this duration and combines any undistributed rewards with the new deposit, then sets `period_finish` to the current timestamp plus three weeks. A new contribution before expiry therefore reschedules the remaining rewards across a fresh three-week period; it does not create a separate independent tranche. This route rewards gauge depositors rather than Votium voters.
@@ -91,7 +109,7 @@ Ownership starts at the hardcoded Curve Ownership Agent (`INITIAL_OWNER`), regar
 
 The owner may:
 
-* Change the contribution amount
+* Change the contribution amount to a positive value at most `MAX_TOTAL_CONTRIBUTION`
 * Change the manager
 * Transfer contract ownership
 
@@ -102,7 +120,7 @@ The manager may:
 * Select Votium or direct-to-split routing
 * Permanently disable future contributions
 * Recover eligible unprocessed Votium sToken incentives directly to the split
-* Return accidentally transferred ERC-20 tokens to the Curve treasury
+* Send idle ERC-20 balances to the Curve treasury, including accidental transfers and recovered direct-gauge reward residues
 
 ### Permissionless caller
 
@@ -127,6 +145,8 @@ The contract is not intended to retain assets between transactions.
 
 During a successful contribution, equal sToken shares are transferred from both treasuries and forwarded to their fixed destinations in the same transaction. Each Votium or gauge allowance is cleared after its successful deposit. Recovery forwards only the newly recovered balance, to the split for Curve's incentive or to TWG for Inverse's incentive.
 
+Accidental transfers and expired direct-gauge reward residues may leave idle tokens in the contributor. The manager's `rescue(token)` sends the full idle balance to Curve's treasury, including any Inverse-funded residue. This function remains available after `kill()`.
+
 ## Required approvals
 
 Before contributions can be executed, both Curve's treasury and Inverse's TWG treasury must approve this contract to spend the chosen sToken:
@@ -134,7 +154,9 @@ Before contributions can be executed, both Curve's treasury and Inverse's TWG tr
 * sDOLA vault shares
 * sfrxUSD vault shares
 
-Neither treasury needs to approve DOLA or frxUSD. For the direct Inverse route, setting the contributor as the gauge's reward distributor is separate from these ERC-20 approvals.
+Approve each sToken intended for use; approving both is not required to contribute with one. Neither treasury needs to approve DOLA or frxUSD. For the direct Inverse route, setting the contributor as the gauge's reward distributor is separate from these ERC-20 approvals.
+
+Votium must allowlist **sDOLA and sfrxUSD themselves** for their Votium routes. Both were allowlisted at the latest reviewed mainnet snapshot, block 26,235,731; recheck the chosen token before activation. Allowlisting DOLA/frxUSD does not cover their sTokens. Direct Inverse rewards additionally require the chosen sToken to be registered on the LLv2 gauge with the deployed contributor as its authorized distributor. These are activation requirements; deploying the contributor does not perform them.
 
 ## Dependencies
 
@@ -157,11 +179,11 @@ pnpm test
 
 Run `pnpm test:fork` for integration checks against deployed contracts at mainnet block 26,028,833. Set `FORK_RPC_URL` to a read-only Ethereum RPC with historical state access if the default public endpoint cannot serve that block. This creates a local Ganache fork, impersonates accounts and supplies missing treasury funding and gauge registration only in that fork; it does not broadcast live transactions. Results are written to `artifacts/fork-review-results.json`.
 
-The fork suite includes two explicit reproductions of the known gauge-leftover routing discrepancy, alongside 18 integration checks. Their passing assertions confirm the documented discrepancy; they do not mean it has been fixed. Full distribution to the split's individual recipients and future governance changes are outside these tests.
+The checked-in historical fork suite has 20 scenarios: 18 integration checks and two confirmations of the gauge-leftover routing behavior described under asset custody. It does not include individual split-recipient withdrawals. The additional 21 October upgrade review below extended that coverage to all 15 recipients for each sToken.
 
-Build settings: Solidity 0.8.37, optimizer enabled with 200 runs, Shanghai EVM. The build writes compiler output to `artifacts/`.
+Build settings: Solidity 0.8.37, optimizer enabled with 200 runs, Shanghai EVM, IR disabled. The build writes compiler output to `artifacts/`.
 
-The [0.8.37 upgrade validation](reviews/2026-10-21-solc-0.8.37.md) records the compiler comparison, 29 passing unit tests, the additional 22-scenario fork review at block 26,235,731, and local checks of both deployment formats. Shanghai remains explicit to reproduce the tested deployment artifacts. Compiling this contract for Osaka with the same compiler and settings produces identical executable creation and runtime code after removing compiler metadata.
+The [0.8.37 upgrade validation](reviews/2026-10-21-solc-0.8.37.md) records 29 passing unit tests, an additional 22-scenario fork review at block 26,235,731 with both compiler versions, and local checks of both deployment formats. The fork covered both tokens across all four routes, recovery, failure rollback, and credit and withdrawal for all 15 split recipients. The 22 scenarios include two confirmations of direct-reward residue behavior. These results are dated snapshots, not claims about future governance changes.
 
 Tests run against a local EVM with mock sTokens whose withdrawal and redemption functions always revert. Coverage includes both tokens and all four route combinations, equal treasury debits, changing share rates, downward rounding, cap exhaustion and dust, TWG-only controls, recovery isolation after kill, the three-week epoch, and whole-transaction rollback on missing Inverse funds/allowance, failed LLv2 Votium deposits and failed direct gauge deposits. The Votium and gauge mocks are not substitutes for validating the deployed contracts' full processing and reward-distribution rules on a mainnet fork.
 
@@ -171,29 +193,22 @@ Tests run against a local EVM with mock sTokens whose withdrawal and redemption 
 
 The [V12 report](https://v12.sh/runs/8013/public) demonstrates third-party recovery only with a modified Votium mock that omits depositor access control. The configured Votium contract at `0x63942E31E98f1833A234077f47880A66136a2D1e` requires `incentives[round][gauge][index].depositor == msg.sender` in `withdrawUnprocessed()`. Its [Sourcify verification record](https://sourcify.dev/server/v2/contract/1/0x63942E31E98f1833A234077f47880A66136a2D1e?fields=all), checked on 2026-09-19, reports matching runtime bytecode. Recovery intentionally relies on that external ownership check; the finding does not apply to this deployment. Revalidate this dependency if changing Votium.
 
-Regression tests exercise both recovery routes with third-party incentives for each supported token: withdrawals revert with `!depositor`, balances and accounting remain unchanged, and the original depositor can still recover. These are mock-based integration tests, not mainnet-fork tests. The existing balance-delta check also reverts the entire withdrawal if the supplied token is wrong.
+Unit regression tests exercise both recovery routes with third-party incentives for each supported token: withdrawals revert with `!depositor`, balances and accounting remain unchanged, and the original depositor can still recover. The additional mainnet-fork review also checked third-party recovery rejection against the real Votium contract for both tokens. The existing balance-delta check reverts the entire withdrawal if the supplied token is wrong.
 
 Do not apply the report's sample getter interface unchanged: production `incentives()` returns `(token, amount, maxPerVote, distributed, recycled, depositor)`, not `(token, amount, depositor)`.
 
-### Deployment review
+### Review history
 
-Reviewers should verify:
+The [22 September integration review](reviews/2026-09-22.md) preserves its historical commit, compiler, cap and test results. The [21 October upgrade validation](reviews/2026-10-21-solc-0.8.37.md) records the current compiler and expanded coverage. Historical recommendations are retained as evidence; the implementation and governance status are described above.
 
-* All hardcoded addresses
-* The hardcoded initial Curve Ownership Agent and the current owner after any ownership transfer
-* Share conversion, rounding and ERC-20 allowance behaviour
-* Votium allowlisting and distribution support for sDOLA and sfrxUSD
-* Votium round and unprocessed-incentive behaviour
-* Cap accounting
-* Role permissions
-* Behaviour at the Votium round boundary
-* Behaviour when the treasury has insufficient shares or allowance
-* Behaviour when the final contribution is smaller than the configured amount
-* Split distribution support for both sTokens
-* Mainnet-fork execution against the intended deployment configuration
-* Inverse TWG funding, approvals and route control
-* LLv2 reward-token registration and distributor configuration for both sTokens
-* Direct reward top-ups and the three-week distribution schedule
+## Deployment and activation
+
+1. Supply the intended initial contribution amount when deploying the current merged source with the documented build settings. Verify the source using the actual compiler version, settings and constructor input used for deployment. Governance approval of the programme, contribution budget and funding is separate from deploying the contract.
+2. Check the deployed runtime and fixed addresses against the compiled artifact. Read back `owner()`, `manager()`, `contributionAmount()`, `MAX_TOTAL_CONTRIBUTION()`, `totalContributed()`, both route flags and `killed()`. The initial accounting is zero, both routes are Votium, and the contract is not killed.
+3. Obtain the required governance and treasury authorizations, then arrange the chosen sToken's spending approval from each treasury to the deployed contributor. The Curve DAO owner can update the contribution amount after deployment. Check current share balances, conversions, Votium allowlisting and platform fee before the first contribution.
+4. If using direct Inverse rewards, complete reward-token registration and distributor setup on the LLv2 gauge. If using direct Curve compensation, use the existing split configuration and supported distribution process.
+5. Simulate the actual treasury approval payloads and first contribution with the deployed address before execution. Record the deployment address, transaction and source-verification link in this repository once available.
+6. Execute and reconcile contributions by active Votium round. Monitor the external compensation target and use `kill()` when the programme is complete. The code cap does not automatically track completion of compensation.
 
 ## Licence
 
